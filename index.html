@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="CCB Livros"/>
+<meta name="application-name" content="CCB Livros"/>
+<meta name="theme-color" content="#0f2240"/>
+<link rel="manifest" href="manifest.json"/>
+<link rel="apple-touch-icon" href="icon-192x192.png"/>
+<link rel="apple-touch-icon" sizes="152x152" href="icon-152x152.png"/>
+<link rel="apple-touch-icon" sizes="192x192" href="icon-192x192.png"/>
+<link rel="apple-touch-icon" sizes="512x512" href="icon-512x512.png"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CCB – Conferência de Livros | Costa Sul</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root {
+    --navy: #0f2240;
+    --navy-mid: #1a3560;
+    --gold: #c8993a;
+    --gold-light: #e8b85a;
+    --cream: #f8f4ee;
+    --cream-dark: #ede7db;
+    --red: #c0392b;
+    --green: #1a7a4a;
+    --amber: #d4800a;
+    --yellow: #d4a800;
+    --text: #1e1e2e;
+    --muted: #6b7080;
+    --white: #ffffff;
+    --bg: var(--cream);
+    --card-bg: var(--white);
+    --shadow: 0 4px 24px rgba(15,34,64,0.12);
+    --radius: 12px;
+    --border: var(--cream-dark);
+    --input-bg: var(--white);
+    --input-text: var(--text);
+  }
+  body.dark {
+    --cream: #141824;
+    --cream-dark: #1e2535;
+    --text: #e8eaf0;
+    --muted: #a8b2c8;
+    --white: #ffffff;
+    --bg: #141824;
+    --card-bg: #1c2333;
+    --shadow: 0 4px 24px rgba(0,0,0,0.4);
+    --border: #2e3d58;
+    --input-bg: #232d44;
+    --input-text: #e8eaf0;
+    --navy: #0a1830;
+    --navy-mid: #122040;
+    --gold: #d4a840;
+    --gold-light: #f0c864;
+    --green: #22a05e;
+    --red: #e05040;
+    --amber: #e09020;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    transition: background 0.3s, color 0.3s;
+  }
+
+  header {
+    background: var(--navy);
+    padding: 0;
+    position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 2px 20px rgba(0,0,0,0.3);
+  }
+  .header-inner {
+    max-width: 1100px; margin: 0 auto;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 24px;
+  }
+  .header-brand { display: flex; align-items: center; gap: 14px; }
+  .header-logo {
+    width: 46px; height: 46px; background: var(--white);
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    overflow: hidden; padding: 4px; flex-shrink: 0;
+  }
+  .header-logo img { width: 100%; height: 100%; object-fit: contain; filter: none; }
+  body.dark .header-logo { background: #ffffff; }
+  body.dark .header-logo img { filter: none; }
+  .header-title { color: #ffffff; }
+  .header-title h1 { font-family: 'Playfair Display', serif; font-size: 1.2rem; line-height: 1; color: #ffffff; }
+  .header-title span { font-size: 0.7rem; color: var(--gold-light); letter-spacing: 0.08em; text-transform: uppercase; }
+  .header-right { display: flex; align-items: center; gap: 12px; }
+  .header-meta { color: #b0bdd0; font-size: 0.78rem; text-align: right; }
+  .header-meta strong { color: var(--gold-light); }
+  .btn-dark {
+    background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+    color: var(--white); width: 36px; height: 36px; border-radius: 50%;
+    cursor: pointer; font-size: 1rem; display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s; flex-shrink: 0;
+  }
+  .btn-dark:hover { background: rgba(255,255,255,0.2); }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 24px 20px; }
+
+  .session-bar {
+    background: var(--navy-mid); color: var(--white);
+    border-radius: var(--radius); padding: 14px 20px;
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+    margin-bottom: 20px;
+  }
+  .session-bar .left { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .session-field { display: flex; flex-direction: column; gap: 2px; }
+  .session-field label { font-size: 0.63rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--gold-light); }
+  .session-field input {
+    background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+    color: var(--white); border-radius: 6px; padding: 5px 10px; font-size: 0.86rem;
+    font-family: 'DM Sans', sans-serif; min-width: 110px;
+  }
+  .session-field input::placeholder { color: rgba(255,255,255,0.4); }
+  .btn-pdf {
+    background: var(--gold); color: #0f2240; border: none;
+    padding: 9px 20px; border-radius: 8px; font-weight: 700; cursor: pointer;
+    font-size: 0.86rem; font-family: 'DM Sans', sans-serif;
+    transition: background 0.2s, transform 0.1s;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .btn-pdf:hover { background: var(--gold-light); transform: translateY(-1px); }
+
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  .stat-card {
+    background: var(--card-bg); border-radius: var(--radius); padding: 16px 18px;
+    box-shadow: var(--shadow); border-top: 3px solid var(--navy);
+    transition: background 0.3s;
+  }
+  .stat-card.ok { border-top-color: var(--green); }
+  .stat-card.warn { border-top-color: var(--amber); }
+  .stat-card.err { border-top-color: var(--red); }
+  .stat-card .num { font-family: 'Playfair Display', serif; font-size: 1.9rem; color: var(--navy); line-height: 1; }
+  body.dark .stat-card .num { color: #e8eaf0; }
+  .stat-card.ok .num { color: var(--green); }
+  body.dark .stat-card.ok .num { color: var(--green); }
+  .stat-card.warn .num { color: var(--amber); }
+  body.dark .stat-card.warn .num { color: var(--amber); }
+  .stat-card.err .num { color: var(--red); }
+  body.dark .stat-card.err .num { color: var(--red); }
+  .stat-card .lbl { font-size: 0.72rem; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.06em; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 20px; }
+
+  .card {
+    background: var(--card-bg); border-radius: var(--radius);
+    box-shadow: var(--shadow); overflow: hidden;
+    transition: background 0.3s;
+  }
+  .card-header {
+    background: var(--navy); color: #ffffff;
+    padding: 13px 18px; display: flex; align-items: center; justify-content: space-between;
+  }
+  .card-header h2 { font-family: 'Playfair Display', serif; font-size: 0.95rem; color: #ffffff; }
+  .card-header span { font-size: 0.7rem; color: var(--gold-light); }
+  .card-body { padding: 18px; }
+
+  .church-tabs { display: flex; flex-wrap: wrap; gap: 7px; }
+  .church-tab {
+    padding: 6px 13px; border-radius: 20px; border: 2px solid var(--border);
+    cursor: pointer; font-size: 0.78rem; font-weight: 500; transition: all 0.2s;
+    background: var(--card-bg); color: var(--text); position: relative;
+  }
+  .church-tab:hover { border-color: var(--gold); color: var(--text); }
+  .church-tab.active { background: var(--navy); color: #ffffff; border-color: var(--gold); }
+  .church-tab .badge {
+    position: absolute; top: -6px; right: -6px;
+    width: 16px; height: 16px; border-radius: 50%; font-size: 0.58rem;
+    display: flex; align-items: center; justify-content: center; font-weight: 700;
+    background: var(--amber); color: var(--white);
+  }
+  .church-tab .badge.ok { background: var(--green); }
+  .church-tab .badge.err { background: var(--red); }
+
+  .book-row {
+    border: 2px solid var(--border); border-radius: 10px;
+    overflow: hidden; transition: border-color 0.2s; margin-bottom: 8px;
+    background: var(--card-bg);
+  }
+  .book-row.status-ok { border-color: #a8d5b5; background: #f0faf4; }
+  body.dark .book-row.status-ok { background: #0d2a1a; border-color: #22a05e; }
+  .book-row.status-avaria { border-color: #f5c6c0; background: #fff8f7; }
+  body.dark .book-row.status-avaria { background: #2a0e0e; border-color: #e05040; }
+  .book-row.status-pendente { border-color: var(--border); }
+  .book-row-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 13px; cursor: pointer; user-select: none;
+  }
+  .book-name { font-weight: 600; font-size: 0.86rem; color: var(--text); }
+  .book-status-badge { font-size: 0.68rem; padding: 3px 9px; border-radius: 20px; font-weight: 600; }
+  .badge-ok { background: #d4f0e0; color: #0f6835; }
+  body.dark .badge-ok { background: #0d3820; color: #4ed890; }
+  .badge-avaria { background: #ffe0dd; color: #a02020; }
+  body.dark .badge-avaria { background: #3a1010; color: #ff8070; }
+  .badge-especial { background: #fff3cc; color: #7a5000; font-weight: 600; }
+  body.dark .badge-especial { background: #3a2e00; color: #f0c840; }
+  .badge-pendente { background: var(--border); color: var(--muted); }
+  .book-expand { font-size: 0.72rem; color: var(--muted); }
+
+  .book-row.status-especial { border-color: #e8c840; background: #fffbea; }
+  body.dark .book-row.status-especial { background: #2a2400; border-color: #c4a800; }
+
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .dot-ok { background: var(--green); }
+  .dot-avaria { background: var(--red); }
+  .dot-especial { background: #d4a800; }
+  .dot-pendente { background: var(--amber); }
+
+  .church-tab .badge.amber { background: #d4a800; color: #fff; }
+  .book-details { padding: 0 13px 13px; display: none; }
+  .book-details.open { display: block; }
+
+  .form-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+  .form-group { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 130px; }
+  .form-group label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+  .form-group input, .form-group textarea {
+    border: 1.5px solid var(--border); border-radius: 7px;
+    padding: 7px 10px; font-size: 0.84rem; font-family: 'DM Sans', sans-serif;
+    color: var(--input-text); background: var(--input-bg); transition: border-color 0.2s;
+  }
+  .form-group input:focus, .form-group textarea:focus { outline: none; border-color: var(--gold); }
+  .form-group textarea { resize: vertical; min-height: 58px; }
+
+  .avaria-section { margin-top: 10px; }
+  .avaria-section > label { font-size: 0.76rem; color: var(--muted); margin-bottom: 6px; display: block; font-weight: 600; }
+  .avaria-checks { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+  .avaria-check {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 0.76rem; cursor: pointer;
+    background: var(--bg); border: 1.5px solid var(--border);
+    padding: 5px 9px; border-radius: 6px; transition: all 0.15s;
+    color: var(--text);
+  }
+  .avaria-check:hover { border-color: var(--red); color: var(--text); }
+  .avaria-check input { accent-color: var(--red); }
+  .avaria-check.checked { background: #ffe0dd; border-color: #c0392b; color: #8a1a10; font-weight: 500; }
+  body.dark .avaria-check.checked { background: #3a1010; border-color: #e05040; color: #ff9080; }
+  .avaria-check.nao-tem {
+    background: #fff8e0; border-color: #d4a800; color: #6a4c00;
+  }
+  .avaria-check.nao-tem:hover { border-color: #b38000; }
+  .avaria-check.nao-tem.checked { background: #ffe680; border-color: #b38000; color: #4a2c00; font-weight: 600; }
+  body.dark .avaria-check.nao-tem { background: #2a2200; border-color: #a09000; color: #e0c860; }
+  body.dark .avaria-check.nao-tem:hover { border-color: #c4a800; }
+  body.dark .avaria-check.nao-tem.checked { background: #3a3000; border-color: #d4b800; color: #f8e060; }
+
+  .btn-confirm {
+    background: var(--gold); color: #0f2240; border: none;
+    padding: 9px 22px; border-radius: 7px; font-weight: 700; cursor: pointer;
+    font-size: 0.86rem; font-family: 'DM Sans', sans-serif;
+    transition: background 0.2s; margin-top: 10px;
+  }
+  .btn-confirm:hover { background: var(--gold-light); }
+
+  .chart-wrap { position: relative; height: 190px; }
+
+  .summary-list { display: flex; flex-direction: column; gap: 5px; max-height: 260px; overflow-y: auto; }
+  .summary-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 7px 11px; border-radius: 7px; background: var(--bg);
+    font-size: 0.8rem;
+  }
+  .summary-item .si-left { display: flex; flex-direction: column; }
+  .summary-item .si-church { font-weight: 600; color: var(--text); }
+  .summary-item .si-book { color: var(--muted); font-size: 0.73rem; }
+
+  .toast {
+    position: fixed; bottom: 24px; right: 24px; z-index: 999;
+    background: var(--navy); color: var(--white);
+    padding: 11px 18px; border-radius: 8px; font-size: 0.84rem;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+    transform: translateY(80px); opacity: 0; transition: all 0.3s;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.green { background: var(--green); }
+  .toast.amber { background: #c48a00; }
+
+  @media (max-width: 720px) {
+    .stats-row { grid-template-columns: repeat(2, 1fr); }
+    .two-col { grid-template-columns: 1fr; }
+    .header-meta { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="header-brand">
+      <div class="header-logo">
+        <img src="data:image/png;base64,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" alt="CCB Logo" />
+      </div>
+      <div class="header-title">
+        <h1>Conferência de Livros</h1>
+        <span>Congregação Cristã no Brasil — Região Costa Sul</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="header-meta" id="headerDate"></div>
+      <button class="btn-dark" id="btnDark" title="Alternar modo escuro" onclick="toggleDark()">🌙</button>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+
+  <div class="session-bar">
+    <div class="left">
+      <div class="session-field">
+        <label>Responsável</label>
+        <input type="text" id="respName" value="WESLEY CAPUCHO" />
+      </div>
+      <div class="session-field">
+        <label>Mês de Referência</label>
+        <input type="month" id="refMonth" />
+      </div>
+      <div class="session-field">
+        <label>Data da Reunião</label>
+        <input type="date" id="meetDate" />
+      </div>
+    </div>
+    <button class="btn-pdf" onclick="gerarPDF()">📄 Gerar Relatório PDF</button>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-card"><div class="num" id="statTotal">0</div><div class="lbl">Livros Conferidos</div></div>
+    <div class="stat-card ok"><div class="num" id="statOk">0</div><div class="lbl">Sem avarias</div></div>
+    <div class="stat-card warn"><div class="num" id="statPend">0</div><div class="lbl">Não conferidos</div></div>
+    <div class="stat-card err"><div class="num" id="statErr">0</div><div class="lbl">Com avarias</div></div>
+  </div>
+
+  <div class="two-col">
+    <div>
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-header">
+          <h2>Casas de Oração</h2>
+          <span>Selecione para conferir</span>
+        </div>
+        <div class="card-body">
+          <div class="church-tabs" id="churchTabs"></div>
+        </div>
+      </div>
+
+      <div class="card" id="bookPanel">
+        <div class="card-header">
+          <h2 id="bookPanelTitle">Selecione uma Casa de Oração</h2>
+          <span>4 livros por casa</span>
+        </div>
+        <div class="card-body">
+          <div id="booksContainer">
+            <p style="color:var(--muted);font-size:0.84rem;text-align:center;padding:20px 0;">
+              ← Clique em uma Casa de Oração para começar
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-header">
+          <h2>Índice de Preenchimento</h2>
+          <span>Situação geral da região</span>
+        </div>
+        <div class="card-body">
+          <div class="chart-wrap"><canvas id="statusChart"></canvas></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h2>Resumo das Conferências</h2>
+          <span id="summaryCount">0 registros</span>
+        </div>
+        <div class="card-body">
+          <div class="summary-list" id="summaryList">
+            <p style="color:var(--muted);font-size:0.8rem;text-align:center;padding:10px 0;">
+              Nenhuma conferência registrada ainda.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const CHURCHES = [
+  "Boiçucanga","Sítio Boa Esperança","Camburi","Barra do Sahy",
+  "Juquehy","Barra do Una","Sítio Velho","Boracéia"
+];
+
+const BOOKS = [
+  { id:"C48",   label:"C48",                    desc:"Avarias / Manutenção Preventiva" },
+  { id:"C2",    label:"C2",                     desc:"Presença – Voluntários Manutenção" },
+  { id:"C4L",   label:"C4 Limpeza",             desc:"Presença – Voluntárias Limpeza" },
+  { id:"C4EBI", label:"C4 Espaço Bíblico Infantil", desc:"Presença – Voluntárias EBI" },
+];
+
+// avarias por livro
+const AVARIAS_C48 = [
+  "Assinatura faltando",
+  "Não Veio",
+  "Datas discordantes com C2",
+  "Outro erro",
+];
+
+const AVARIAS_C2 = [
+  "Cabeçalho incompleto",
+  "Rasura",
+  "Erro cronológico",
+  "Assinatura faltando",
+  "Mês/Ano errado",
+  "Casa de Oração errada",
+  "Setor/Adm errado",
+  "Linhas em branco",
+  "Adesão",
+  "Código de Função",
+  "Nº Livro",
+  "Dia",
+  "Não Veio",
+  "Não Teve Esse Mês",
+  "Datas discordantes com C48",
+  "Outro erro",
+];
+
+const AVARIAS_C4L = [
+  "Cabeçalho incompleto",
+  "Rasura",
+  "Erro cronológico",
+  "Assinatura faltando",
+  "Mês/Ano errado",
+  "Casa de Oração errada",
+  "Setor/Adm errado",
+  "Linhas em branco",
+  "Adesão",
+  "Código de Função",
+  "Nº Livro",
+  "Dia",
+  "Não Veio",
+  "Não Teve Esse Mês",
+  "Outro erro",
+];
+
+const AVARIAS_C4EBI = [
+  "Cabeçalho incompleto",
+  "Rasura",
+  "Erro cronológico",
+  "Assinatura faltando",
+  "Mês/Ano errado",
+  "Casa de Oração errada",
+  "Setor/Adm errado",
+  "Linhas em branco",
+  "Adesão",
+  "Código de Função",
+  "Nº Livro",
+  "Dia",
+  "Não Veio",
+  "Não Teve Esse Mês",
+  "Não Tem",
+  "Outro erro",
+];
+
+// avarias que NÃO contam como "avaria" no gráfico — são categorias especiais
+const AVARIAS_ESPECIAIS = ["Não Teve Esse Mês", "Não Tem", "Não Veio"];
+
+function getAvarias(bookId) {
+  if (bookId === "C48")   return [...AVARIAS_C48];
+  if (bookId === "C2")    return [...AVARIAS_C2];
+  if (bookId === "C4L")   return [...AVARIAS_C4L];
+  if (bookId === "C4EBI") return [...AVARIAS_C4EBI];
+  return [];
+}
+
+let state = {};
+let activeChurch = null;
+let chart = null;
+let darkMode = false;
+
+function stateKey(church, bookId) { return church + "|" + bookId; }
+function getRecord(church, bookId) {
+  const k = stateKey(church, bookId);
+  if (!state[k]) state[k] = { church, bookId, status:"pendente", avarias:[], obs:"", conferidoPor:"" };
+  return state[k];
+}
+
+function getResp() { return document.getElementById("respName").value || "WESLEY CAPUCHO"; }
+
+window.onload = () => {
+  const now = new Date();
+  document.getElementById("headerDate").innerHTML =
+    `<strong>${now.toLocaleDateString("pt-BR",{weekday:"long"})}</strong><br>${now.toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"})}`;
+  document.getElementById("meetDate").value = now.toISOString().split("T")[0];
+  document.getElementById("refMonth").value = now.toISOString().slice(0,7);
+  renderChurchTabs();
+  updateStats();
+  renderSummary();
+  initChart();
+};
+
+function toggleDark() {
+  darkMode = !darkMode;
+  document.body.classList.toggle("dark", darkMode);
+  document.getElementById("btnDark").textContent = darkMode ? "☀️" : "🌙";
+  if (chart) updateChart();
+}
+
+function renderChurchTabs() {
+  const wrap = document.getElementById("churchTabs");
+  wrap.innerHTML = "";
+  CHURCHES.forEach(ch => {
+    const tab = document.createElement("div");
+    tab.className = "church-tab" + (activeChurch === ch ? " active" : "");
+    tab.textContent = ch;
+    let ok=0, err=0, esp=0;
+    BOOKS.forEach(b => {
+      const r = state[stateKey(ch, b.id)];
+      if (r && r.status==="ok") ok++;
+      else if (r && r.status==="avaria") err++;
+      else if (r && r.status==="especial") esp++;
+    });
+    const done = ok + err + esp;
+    if (done > 0) {
+      const badge = document.createElement("span");
+      badge.className = "badge" + (err > 0 ? " err" : esp > 0 ? " amber" : " ok");
+      badge.textContent = done;
+      tab.appendChild(badge);
+    }
+    tab.onclick = () => { activeChurch = ch; renderChurchTabs(); renderBooks(ch); };
+    wrap.appendChild(tab);
+  });
+}
+
+function renderBooks(church) {
+  document.getElementById("bookPanelTitle").textContent = church;
+  const container = document.getElementById("booksContainer");
+  container.innerHTML = "";
+  BOOKS.forEach(book => {
+    const rec = getRecord(church, book.id);
+    const row = document.createElement("div");
+    row.className = "book-row status-" + rec.status;
+
+    const header = document.createElement("div");
+    header.className = "book-row-header";
+    const statusLabel = rec.status==="ok" ? "✓ OK" : rec.status==="avaria" ? "⚠ Avaria" : rec.status==="especial" ? "📋 Especial" : "— Pendente";
+    const statusClass = rec.status==="ok" ? "badge-ok" : rec.status==="avaria" ? "badge-avaria" : rec.status==="especial" ? "badge-especial" : "badge-pendente";
+    header.innerHTML = `
+      <div>
+        <div class="book-name">${book.label}</div>
+        <div style="font-size:0.7rem;color:var(--muted)">${book.desc}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="book-status-badge ${statusClass}">${statusLabel}</span>
+        <span class="book-expand">▾</span>
+      </div>`;
+
+    const details = document.createElement("div");
+    details.className = "book-details";
+
+    const avList = getAvarias(book.id);
+    const avariaHtml = avList.map((av, i) => {
+      const isEspecial = AVARIAS_ESPECIAIS.includes(av);
+      const checked = rec.avarias.includes(av);
+      const extraClass = isEspecial ? " nao-tem" : "";
+      return `<label class="avaria-check${extraClass}${checked?" checked":""}" id="avlbl-${book.id}-${i}">
+        <input type="checkbox" ${checked?"checked":""} onchange="toggleAvaria('${church}','${book.id}','${av.replace(/'/g,"\\'")}',this,${i})" />
+        ${av}
+      </label>`;
+    }).join("");
+
+    details.innerHTML = `
+      <div class="form-row">
+        <div class="form-group">
+          <label>Conferido por</label>
+          <input type="text" id="conf-${book.id}" value="${rec.conferidoPor || getResp()}" placeholder="Nome do responsável" />
+        </div>
+      </div>
+      <div class="avaria-section">
+        <label>⚠ Avarias encontradas (marque todas que se aplicam):</label>
+        <div class="avaria-checks" id="avchecks-${book.id}">${avariaHtml}</div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Observações adicionais</label>
+          <textarea id="obs-${book.id}" placeholder="Descreva detalhes relevantes...">${rec.obs}</textarea>
+        </div>
+      </div>
+      <button class="btn-confirm" onclick="confirmar('${church}','${book.id}')">✓ Confirmar</button>
+    `;
+
+    header.onclick = () => {
+      details.classList.toggle("open");
+      // auto-fill "conferido por" on open
+      const confInput = details.querySelector("#conf-" + book.id);
+      if (confInput && !confInput.value) confInput.value = getResp();
+      header.querySelector(".book-expand").textContent =
+        details.classList.contains("open") ? "▴" : "▾";
+    };
+
+    row.appendChild(header);
+    row.appendChild(details);
+    container.appendChild(row);
+  });
+}
+
+function toggleAvaria(church, bookId, av, cb, idx) {
+  const rec = getRecord(church, bookId);
+  const lbl = document.getElementById(`avlbl-${bookId}-${idx}`);
+  if (cb.checked) {
+    if (!rec.avarias.includes(av)) rec.avarias.push(av);
+    lbl.classList.add("checked");
+  } else {
+    rec.avarias = rec.avarias.filter(x => x !== av);
+    lbl.classList.remove("checked");
+  }
+}
+
+function confirmar(church, bookId) {
+  const rec = getRecord(church, bookId);
+  rec.conferidoPor = document.getElementById("conf-" + bookId).value || getResp();
+  rec.obs = document.getElementById("obs-" + bookId).value;
+  if (rec.avarias.length === 0) {
+    rec.status = "ok";
+  } else {
+    const temSoEspeciais = rec.avarias.every(a => AVARIAS_ESPECIAIS.includes(a));
+    rec.status = temSoEspeciais ? "especial" : "avaria";
+  }
+  afterSave(church, bookId);
+}
+
+function afterSave(church, bookId) {
+  renderBooks(church);
+  renderChurchTabs();
+  updateStats();
+  renderSummary();
+  updateChart();
+  const s = state[stateKey(church, bookId)].status;
+  const msg = s==="ok" ? "✓ Livro conferido — OK!" : s==="especial" ? "📋 Registrado como situação especial" : "⚠ Avaria(s) registrada(s)!";
+  const cls = s==="ok" ? "green" : s==="especial" ? "amber" : "";
+  showToast(msg, cls);
+}
+
+function updateStats() {
+  const allTotal = CHURCHES.length * BOOKS.length;
+  let done=0, ok=0, pend=0, err=0, esp=0;
+  Object.values(state).forEach(r => {
+    if (r.status==="ok") { ok++; done++; }
+    else if (r.status==="avaria") { err++; done++; }
+    else if (r.status==="especial") { esp++; done++; }
+    else { pend++; done++; }
+  });
+  const notStarted = allTotal - Object.keys(state).length;
+  document.getElementById("statTotal").textContent = done;
+  document.getElementById("statOk").textContent = ok;
+  document.getElementById("statPend").textContent = pend + notStarted;
+  document.getElementById("statErr").textContent = err;
+}
+
+function renderSummary() {
+  const list = document.getElementById("summaryList");
+  const items = [];
+  CHURCHES.forEach(ch => BOOKS.forEach(b => {
+    const r = state[stateKey(ch, b.id)];
+    if (r) items.push(r);
+  }));
+  document.getElementById("summaryCount").textContent = items.length + " registros";
+  if (items.length === 0) {
+    list.innerHTML = `<p style="color:var(--muted);font-size:0.8rem;text-align:center;padding:10px 0;">Nenhuma conferência registrada ainda.</p>`;
+    return;
+  }
+  list.innerHTML = items.map(r => {
+    const bookLabel = BOOKS.find(b=>b.id===r.bookId)?.label;
+    const avInfo = r.avarias.length>0 ? r.avarias.join(", ") : "Sem avarias";
+    const dotClass = r.status==="ok" ? "dot-ok" : r.status==="avaria" ? "dot-avaria" : r.status==="especial" ? "dot-especial" : "dot-pendente";
+    return `<div class="summary-item">
+      <div class="si-left">
+        <span class="si-church">${r.church}</span>
+        <span class="si-book">${bookLabel} — ${avInfo}</span>
+      </div>
+      <span class="dot ${dotClass}"></span>
+    </div>`;
+  }).join("");
+}
+
+function initChart() {
+  const ctx = document.getElementById("statusChart").getContext("2d");
+  const total = CHURCHES.length * BOOKS.length;
+  chart = new Chart(ctx, {
+    type: "doughnut",
+    data: {
+      labels: ["OK", "Com Avaria", "Não Teve / Não Tem / Não Veio", "Não Conferido"],
+      datasets: [{ data: [0, 0, 0, total], backgroundColor: ["#1a7a4a","#c0392b","#d4a800","#ccc7bc"], borderWidth: 0, hoverOffset: 4 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: "bottom", labels: { font: { family: "DM Sans", size: 10 }, padding: 8 } }
+      },
+      cutout: "65%"
+    }
+  });
+}
+
+function updateChart() {
+  let ok=0, err=0, esp=0;
+  const total = CHURCHES.length * BOOKS.length;
+  Object.values(state).forEach(r => {
+    if (r.status==="ok") ok++;
+    else if (r.status==="avaria") err++;
+    else if (r.status==="especial") esp++;
+  });
+  const pend = total - ok - err - esp;
+  chart.data.datasets[0].data = [ok, err, esp, pend];
+  chart.data.datasets[0].backgroundColor = ["#1a7a4a","#c0392b","#d4a800", darkMode ? "#2a3550" : "#ccc7bc"];
+  chart.update();
+}
+
+function showToast(msg, cls) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.className = "toast show " + (cls||"");
+  setTimeout(() => t.className = "toast", 2600);
+}
+
+// ====== PDF ======
+async function gerarPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const resp  = document.getElementById("respName").value || "WESLEY CAPUCHO";
+  const month = document.getElementById("refMonth").value || "";
+  const meet  = document.getElementById("meetDate").value || "";
+  const W = 210, M = 14;
+  let y = 0;
+
+  // CAPA
+  doc.setFillColor(15,34,64); doc.rect(0,0,W,297,"F");
+  doc.setFillColor(200,153,58);
+  doc.rect(M,38,W-M*2,1,"F"); doc.rect(M,118,W-M*2,1,"F");
+  doc.setTextColor(200,153,58); doc.setFont("helvetica","bold"); doc.setFontSize(10);
+  doc.text("CONGREGAÇÃO CRISTÃ NO BRASIL",W/2,50,{align:"center"});
+  doc.text("REGIÃO COSTA SUL — SÃO SEBASTIÃO / SP",W/2,58,{align:"center"});
+  doc.setTextColor(255,255,255); doc.setFontSize(24);
+  doc.text("Relatório de",W/2,80,{align:"center"});
+  doc.text("Conferência de Livros",W/2,93,{align:"center"});
+  doc.setFontSize(10); doc.setTextColor(200,153,58);
+  const monthStr = month ? new Date(month+"-02").toLocaleDateString("pt-BR",{month:"long",year:"numeric"}) : "—";
+  doc.text("Mês de referência: "+monthStr,W/2,130,{align:"center"});
+  doc.text("Data da reunião: "+(meet?new Date(meet+"T12:00:00").toLocaleDateString("pt-BR"):"—"),W/2,138,{align:"center"});
+  doc.text("Responsável: "+resp,W/2,146,{align:"center"});
+
+  let totOk=0,totErr=0;
+  const allTotal = CHURCHES.length*BOOKS.length;
+  Object.values(state).forEach(r=>{ if(r.status==="ok")totOk++; else if(r.status==="avaria")totErr++; });
+  const totPend = allTotal-totOk-totErr;
+  const pct = allTotal>0?Math.round((totOk/allTotal)*100):0;
+
+  doc.setFillColor(26,53,96); doc.roundedRect(M,162,W-M*2,42,4,4,"F");
+  doc.setTextColor(255,255,255); doc.setFontSize(9);
+  doc.text("Total de livros: "+allTotal,M+8,176);
+  doc.text("OK: "+totOk,M+8,185);
+  doc.text("Com avaria: "+totErr,M+8,194);
+  doc.text("Não conferidos: "+totPend,W/2+4,176);
+  doc.setTextColor(200,153,58); doc.setFontSize(20);
+  doc.text(pct+"%",W/2+4,193);
+  doc.setFontSize(8); doc.text("índice de conformidade",W/2+4,200);
+  doc.setFillColor(200,153,58); doc.rect(M,264,W-M*2,1,"F");
+  doc.setFontSize(7); doc.text("Gerado em "+new Date().toLocaleString("pt-BR"),W/2,272,{align:"center"});
+
+  // PÁGINAS POR IGREJA
+  CHURCHES.forEach((ch,ci) => {
+    doc.addPage(); y=14;
+    doc.setFillColor(15,34,64); doc.rect(0,0,W,18,"F");
+    doc.setTextColor(255,255,255); doc.setFont("helvetica","bold"); doc.setFontSize(11);
+    doc.text(ch,M,12);
+    doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(200,153,58);
+    doc.text((ci+1)+" de "+CHURCHES.length,W-M,12,{align:"right"});
+    y=23;
+
+    BOOKS.forEach(bk => {
+      const rec = state[stateKey(ch,bk.id)];
+      const status = rec ? rec.status : "pendente";
+      // base compacta: label+desc+conf em 3 linhas de ~5mm cada = ~18mm
+      let blockH = 20;
+      if (rec && rec.avarias.length>0) blockH += Math.ceil(rec.avarias.length/3)*6;
+      if (rec && rec.obs) blockH += 6;
+      if (y+blockH>284){ doc.addPage(); y=14; }
+      const sideColor = status==="ok"?[26,122,74]:status==="avaria"?[192,57,43]:status==="especial"?[180,140,0]:[170,160,145];
+      doc.setFillColor(...sideColor); doc.rect(M,y,2.5,blockH,"F");
+      doc.setFillColor(248,244,238); doc.rect(M+2.5,y,W-M*2-2.5,blockH,"F");
+
+      // linha 1: nome do livro (esquerda) + status (direita)
+      doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(15,34,64);
+      doc.text(bk.label,M+5,y+5.5);
+      doc.setFont("helvetica","bold"); doc.setFontSize(7); doc.setTextColor(...sideColor);
+      const stTxt = status==="ok"?"✓ OK":status==="avaria"?"⚠ Avaria":status==="especial"?"📋 Especial":"— Não Conferido";
+      doc.text(stTxt,W-M-3,y+5.5,{align:"right"});
+
+      // linha 2: descrição + conferido por (mesma linha, separados)
+      doc.setFont("helvetica","normal"); doc.setFontSize(6.5); doc.setTextColor(100,100,120);
+      doc.text(bk.desc,M+5,y+11);
+      if (rec && rec.conferidoPor) {
+        doc.setTextColor(70,70,90);
+        doc.text("Conf.: "+(rec.conferidoPor||"—"),W-M-3,y+11,{align:"right"});
+      }
+
+      // linha 3+: avarias e obs
+      let curY = y+16.5;
+      if (rec && rec.avarias.length>0) {
+        doc.setFont("helvetica","normal"); doc.setFontSize(6.5); doc.setTextColor(192,57,43);
+        const avStr = "Av.: "+rec.avarias.join(" · ");
+        doc.text(avStr,M+5,curY,{maxWidth:W-M*2-10}); curY+=6*Math.ceil(rec.avarias.length/3);
+      }
+      if (rec && rec.obs) {
+        doc.setFont("helvetica","italic"); doc.setFontSize(6.5); doc.setTextColor(70,70,90);
+        doc.text("Obs.: "+rec.obs,M+5,curY,{maxWidth:W-M*2-10});
+      }
+
+      y += blockH+3;
+    });
+
+    const chOk=BOOKS.filter(b=>state[stateKey(ch,b.id)]?.status==="ok").length;
+    const chErr=BOOKS.filter(b=>state[stateKey(ch,b.id)]?.status==="avaria").length;
+    if(y+11>287){doc.addPage();y=14;}
+    doc.setFillColor(200,190,175); doc.rect(M,y+2,W-M*2,9,"F");
+    doc.setFont("helvetica","bold"); doc.setFontSize(7.5); doc.setTextColor(15,34,64);
+    doc.text("Resumo: "+chOk+" OK  |  "+chErr+" com avaria  |  "+(BOOKS.length-chOk-chErr)+" não conferidos",M+4,y+8);
+  });
+
+  // PÁGINA RESUMO GERAL
+  doc.addPage(); y=14;
+  doc.setFillColor(15,34,64); doc.rect(0,0,W,22,"F");
+  doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(255,255,255);
+  doc.text("Resumo Geral — Todas as Casas de Oração",M,14);
+  y=30;
+  const colW=(W-M*2)/5;
+
+  // cabeçalho da tabela
+  doc.setFillColor(15,34,64); doc.rect(M,y,W-M*2,9,"F");
+  doc.setTextColor(200,153,58); doc.setFont("helvetica","bold"); doc.setFontSize(7.5);
+  ["Casa de Oração","C48","C2","C4 Limpeza","C4 EBI"].forEach((h,i)=>{
+    doc.text(h,M+i*colW+2,y+6.5);
+  });
+  y+=9;
+
+  CHURCHES.forEach((ch,ci)=>{
+    // calcula altura necessária para a linha desta igreja
+    // cada célula pode ter 1 linha (ok/especial) ou múltiplas (avarias)
+    let maxLines = 1;
+    BOOKS.forEach(bk=>{
+      const r=state[stateKey(ch,bk.id)];
+      if(r && r.status==="avaria" && r.avarias.length>0){
+        // cada avaria em linha própria
+        const lines = r.avarias.filter(a=>!AVARIAS_ESPECIAIS.includes(a)).length
+                    + r.avarias.filter(a=>AVARIAS_ESPECIAIS.includes(a)).length;
+        if(lines>maxLines) maxLines=lines;
+      }
+    });
+    const rowH = Math.max(9, maxLines*6+3);
+
+    doc.setFillColor(ci%2===0?248:237,ci%2===0?244:230,ci%2===0?238:215);
+    doc.rect(M,y,W-M*2,rowH,"F");
+
+    // nome da igreja (centralizado verticalmente)
+    doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(15,34,64);
+    doc.text(ch,M+2,y+rowH/2+2.5);
+
+    BOOKS.forEach((bk,bi)=>{
+      const r=state[stateKey(ch,bk.id)];
+      const st=r?r.status:"pendente";
+      const cx=M+(bi+1)*colW+2;
+
+      if(st==="ok"){
+        doc.setFont("helvetica","bold"); doc.setFontSize(7); doc.setTextColor(26,122,74);
+        doc.text("✓ OK",cx,y+rowH/2+2.5);
+      } else if(st==="especial"){
+        // mostra o(s) motivo(s) especial(is) ex: "Não Veio", "Não Teve"
+        const especiais = r.avarias.filter(a=>AVARIAS_ESPECIAIS.includes(a));
+        doc.setFont("helvetica","italic"); doc.setFontSize(6.5); doc.setTextColor(180,130,0);
+        if(especiais.length===0){
+          doc.text("Especial",cx,y+rowH/2+2.5);
+        } else {
+          especiais.forEach((e,ei)=>{
+            doc.text(e,cx,y+5+ei*6);
+          });
+        }
+      } else if(st==="avaria"){
+        const avNormais  = r.avarias.filter(a=>!AVARIAS_ESPECIAIS.includes(a));
+        const avEspeciais= r.avarias.filter(a=>AVARIAS_ESPECIAIS.includes(a));
+        let lineY=y+5;
+        doc.setFont("helvetica","normal"); doc.setFontSize(6); doc.setTextColor(192,57,43);
+        avNormais.forEach(av=>{
+          // abreviações para caber na coluna (~36mm)
+          const label=av.length>18?av.slice(0,17)+"…":av;
+          doc.text("• "+label,cx,lineY); lineY+=6;
+        });
+        if(avEspeciais.length>0){
+          doc.setTextColor(180,130,0);
+          avEspeciais.forEach(av=>{
+            const label=av.length>18?av.slice(0,17)+"…":av;
+            doc.text("• "+label,cx,lineY); lineY+=6;
+          });
+        }
+      } else {
+        // pendente / não conferido — sem texto, só traço
+        doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(150,140,130);
+        doc.text("—",cx,y+rowH/2+2.5);
+      }
+    });
+    y+=rowH;
+  });
+
+  y+=10;
+  doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(15,34,64);
+  doc.text("Índice de conformidade geral: "+pct+"%",M,y);
+  y+=7;
+  doc.setFillColor(210,200,185); doc.rect(M,y,W-M*2,7,"F");
+  const bc=pct>=80?[26,122,74]:pct>=50?[212,128,10]:[192,57,43];
+  doc.setFillColor(...bc); doc.rect(M,y,(W-M*2)*(pct/100),7,"F");
+  if(pct>8){doc.setTextColor(255,255,255);doc.setFontSize(7);doc.text(pct+"%",M+(W-M*2)*(pct/100)-10,y+5.5);}
+  y+=14;
+  doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(100,100,120);
+  doc.text("Gerado em "+new Date().toLocaleString("pt-BR")+" por "+resp,M,y);
+  doc.text("Congregação Cristã no Brasil — Região Costa Sul — São Sebastião / SP",M,y+5);
+
+  doc.save("CCB_Conferencia_"+(month||"relatorio")+".pdf");
+  showToast("📄 PDF gerado com sucesso!", "green");
+}
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
