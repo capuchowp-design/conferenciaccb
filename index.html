@@ -169,6 +169,7 @@
     padding: 6px 13px; border-radius: 20px; border: 2px solid var(--border);
     cursor: pointer; font-size: 0.78rem; font-weight: 500; transition: all 0.2s;
     background: var(--card-bg); color: var(--text); position: relative;
+    display: inline-flex; align-items: center;
   }
   .church-tab:hover { border-color: var(--gold); color: var(--text); }
   .church-tab.active { background: var(--navy); color: #ffffff; border-color: var(--gold); }
@@ -344,10 +345,21 @@
       <div class="card" style="margin-bottom:14px;">
         <div class="card-header">
           <h2>Casas de Oração</h2>
-          <span>Selecione para conferir</span>
+          <span id="addChurchToggle" style="cursor:pointer;text-decoration:underline;" onclick="toggleAddChurchForm()">+ Igreja Visitante</span>
         </div>
         <div class="card-body">
+          <div class="form-row" id="addChurchForm" style="display:none;">
+            <div class="form-group" style="flex:2;">
+              <label>Nome da Igreja Visitante</label>
+              <input type="text" id="newChurchName" placeholder="Ex: Igreja de Ubatuba" onkeydown="if(event.key==='Enter')addVisitingChurch()"/>
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:6px;">
+              <button class="btn-confirm" style="margin-top:0;" onclick="addVisitingChurch()">Adicionar</button>
+              <button class="btn-confirm" style="margin-top:0;background:var(--border);color:var(--text);" onclick="toggleAddChurchForm()">Cancelar</button>
+            </div>
+          </div>
           <div class="church-tabs" id="churchTabs"></div>
+          <div id="manualChurchHint" style="font-size:0.68rem;color:var(--muted);margin-top:8px;"></div>
         </div>
       </div>
 
@@ -397,10 +409,11 @@
 <div class="toast" id="toast"></div>
 
 <script>
-const CHURCHES = [
+let CHURCHES = [
   "Boiçucanga","Sítio Boa Esperança","Camburi","Barra do Sahy",
   "Juquehy","Barra do Una","Sítio Velho","Boracéia"
 ];
+let churchesManual = []; // nomes das igrejas visitantes adicionadas manualmente nesta sessão
 
 const BOOKS = [
   { id:"C48",   label:"C48",                    desc:"Avarias / Manutenção Preventiva" },
@@ -517,13 +530,67 @@ function toggleDark() {
   if (chart) updateChart();
 }
 
+function toggleAddChurchForm() {
+  const f = document.getElementById("addChurchForm");
+  const showing = f.style.display === "flex";
+  f.style.display = showing ? "none" : "flex";
+  if (!showing) {
+    document.getElementById("newChurchName").focus();
+  } else {
+    document.getElementById("newChurchName").value = "";
+  }
+}
+
+function addVisitingChurch() {
+  const input = document.getElementById("newChurchName");
+  const name = (input.value || "").trim();
+  if (!name) { showToast("Digite o nome da igreja", "amber"); return; }
+  const exists = CHURCHES.some(c => c.toLowerCase() === name.toLowerCase());
+  if (exists) { showToast("Essa igreja já está na lista", "amber"); return; }
+  CHURCHES.push(name);
+  churchesManual.push(name);
+  input.value = "";
+  document.getElementById("addChurchForm").style.display = "none";
+  activeChurch = name;
+  renderChurchTabs();
+  renderBooks(name);
+  updateStats();
+  renderSummary();
+  updateChart();
+  showToast("✓ Igreja visitante adicionada: " + name, "green");
+}
+
+function removeChurch(church) {
+  if (!confirm("Remover a igreja visitante \"" + church + "\" e todos os registros dela?")) return;
+  CHURCHES = CHURCHES.filter(c => c !== church);
+  churchesManual = churchesManual.filter(c => c !== church);
+  BOOKS.forEach(b => { delete state[stateKey(church, b.id)]; });
+  if (activeChurch === church) {
+    activeChurch = null;
+    document.getElementById("bookPanelTitle").textContent = "Selecione uma Casa de Oração";
+    document.getElementById("booksContainer").innerHTML =
+      `<p style="color:var(--muted);font-size:0.84rem;text-align:center;padding:20px 0;">← Clique em uma Casa de Oração para começar</p>`;
+  }
+  renderChurchTabs();
+  updateStats();
+  renderSummary();
+  updateChart();
+  showToast("Igreja visitante removida", "amber");
+}
+
 function renderChurchTabs() {
   const wrap = document.getElementById("churchTabs");
   wrap.innerHTML = "";
   CHURCHES.forEach(ch => {
+    const isManual = churchesManual.includes(ch);
     const tab = document.createElement("div");
     tab.className = "church-tab" + (activeChurch === ch ? " active" : "");
-    tab.textContent = ch;
+    if (isManual) tab.style.borderStyle = "dashed";
+
+    const label = document.createElement("span");
+    label.textContent = ch + (isManual ? " ✦" : "");
+    tab.appendChild(label);
+
     let ok=0, err=0, esp=0;
     BOOKS.forEach(b => {
       const r = state[stateKey(ch, b.id)];
@@ -538,9 +605,26 @@ function renderChurchTabs() {
       badge.textContent = done;
       tab.appendChild(badge);
     }
+
+    if (isManual) {
+      const rm = document.createElement("span");
+      rm.textContent = " ✕";
+      rm.title = "Remover igreja visitante";
+      rm.style.marginLeft = "5px";
+      rm.style.color = "var(--red)";
+      rm.style.fontWeight = "700";
+      rm.onclick = (e) => { e.stopPropagation(); removeChurch(ch); };
+      tab.appendChild(rm);
+    }
+
     tab.onclick = () => { activeChurch = ch; renderChurchTabs(); renderBooks(ch); };
     wrap.appendChild(tab);
   });
+
+  const hint = document.getElementById("manualChurchHint");
+  hint.textContent = churchesManual.length > 0
+    ? "✦ Igreja(s) visitante(s) adicionada(s) manualmente para esta conferência."
+    : "";
 }
 
 function renderBooks(church) {
@@ -778,161 +862,107 @@ async function gerarPDF() {
   doc.setFillColor(200,153,58); doc.rect(M,264,W-M*2,1,"F");
   doc.setFontSize(7); doc.text("Gerado em "+new Date().toLocaleString("pt-BR"),W/2,272,{align:"center"});
 
-  // PÁGINAS POR IGREJA
+  // ===== RESUMO GERAL — TODAS AS IGREJAS EM UMA TABELA COMPACTA (1 FOLHA SEMPRE QUE POSSÍVEL) =====
+  doc.addPage(); y = 14;
+  const pageBottom = 285;
+  const lineH = 3.5; // altura de cada linha de texto dentro da célula (fonte reduzida ao máximo)
+  let colWidths = [];
+
+  function drawHeader() {
+    doc.setFillColor(15,34,64); doc.rect(0,0,W,15,"F");
+    doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(255,255,255);
+    doc.text("Resumo Geral — Todas as Casas de Oração",M,10);
+    y = 20;
+    doc.setFillColor(15,34,64); doc.rect(M,y,W-M*2,6.5,"F");
+    doc.setTextColor(200,153,58); doc.setFont("helvetica","bold"); doc.setFontSize(6.2);
+    const heads = ["Casa de Oração","C48","C2","C4 Limpeza","C4 EBI"];
+    const totalW = W - M*2;
+    colWidths = [totalW*0.24, totalW*0.19, totalW*0.19, totalW*0.19, totalW*0.19];
+    let cx = M+2;
+    heads.forEach((h,i)=>{ doc.text(h,cx,y+4.5); cx += colWidths[i]; });
+    y += 6.5;
+  }
+
+  drawHeader();
+
   CHURCHES.forEach((ch,ci) => {
-    doc.addPage(); y=14;
-    doc.setFillColor(15,34,64); doc.rect(0,0,W,18,"F");
-    doc.setTextColor(255,255,255); doc.setFont("helvetica","bold"); doc.setFontSize(11);
-    doc.text(ch,M,12);
-    doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(200,153,58);
-    doc.text((ci+1)+" de "+CHURCHES.length,W-M,12,{align:"right"});
-    y=23;
-
-    BOOKS.forEach(bk => {
-      const rec = state[stateKey(ch,bk.id)];
-      const status = rec ? rec.status : "pendente";
-      // base compacta: label+desc+conf em 3 linhas de ~5mm cada = ~18mm
-      let blockH = 20;
-      if (rec && rec.avarias.length>0) blockH += Math.ceil(rec.avarias.length/3)*6;
-      if (rec && rec.obs) blockH += 6;
-      if (y+blockH>284){ doc.addPage(); y=14; }
-      const sideColor = status==="ok"?[26,122,74]:status==="avaria"?[192,57,43]:status==="especial"?[180,140,0]:[170,160,145];
-      doc.setFillColor(...sideColor); doc.rect(M,y,2.5,blockH,"F");
-      doc.setFillColor(248,244,238); doc.rect(M+2.5,y,W-M*2-2.5,blockH,"F");
-
-      // linha 1: nome do livro (esquerda) + status (direita)
-      doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(15,34,64);
-      doc.text(bk.label,M+5,y+5.5);
-      doc.setFont("helvetica","bold"); doc.setFontSize(7); doc.setTextColor(...sideColor);
-      const stTxt = status==="ok"?"✓ OK":status==="avaria"?"⚠ Avaria":status==="especial"?"📋 Especial":"— Não Conferido";
-      doc.text(stTxt,W-M-3,y+5.5,{align:"right"});
-
-      // linha 2: descrição + conferido por (mesma linha, separados)
-      doc.setFont("helvetica","normal"); doc.setFontSize(6.5); doc.setTextColor(100,100,120);
-      doc.text(bk.desc,M+5,y+11);
-      if (rec && rec.conferidoPor) {
-        doc.setTextColor(70,70,90);
-        doc.text("Conf.: "+(rec.conferidoPor||"—"),W-M-3,y+11,{align:"right"});
-      }
-
-      // linha 3+: avarias e obs
-      let curY = y+16.5;
-      if (rec && rec.avarias.length>0) {
-        doc.setFont("helvetica","normal"); doc.setFontSize(6.5); doc.setTextColor(192,57,43);
-        const avStr = "Av.: "+rec.avarias.join(" · ");
-        doc.text(avStr,M+5,curY,{maxWidth:W-M*2-10}); curY+=6*Math.ceil(rec.avarias.length/3);
-      }
-      if (rec && rec.obs) {
-        doc.setFont("helvetica","italic"); doc.setFontSize(6.5); doc.setTextColor(70,70,90);
-        doc.text("Obs.: "+rec.obs,M+5,curY,{maxWidth:W-M*2-10});
-      }
-
-      y += blockH+3;
-    });
-
-    const chOk=BOOKS.filter(b=>state[stateKey(ch,b.id)]?.status==="ok").length;
-    const chErr=BOOKS.filter(b=>state[stateKey(ch,b.id)]?.status==="avaria").length;
-    if(y+11>287){doc.addPage();y=14;}
-    doc.setFillColor(200,190,175); doc.rect(M,y+2,W-M*2,9,"F");
-    doc.setFont("helvetica","bold"); doc.setFontSize(7.5); doc.setTextColor(15,34,64);
-    doc.text("Resumo: "+chOk+" OK  |  "+chErr+" com avaria  |  "+(BOOKS.length-chOk-chErr)+" não conferidos",M+4,y+8);
-  });
-
-  // PÁGINA RESUMO GERAL
-  doc.addPage(); y=14;
-  doc.setFillColor(15,34,64); doc.rect(0,0,W,22,"F");
-  doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(255,255,255);
-  doc.text("Resumo Geral — Todas as Casas de Oração",M,14);
-  y=30;
-  const colW=(W-M*2)/5;
-
-  // cabeçalho da tabela
-  doc.setFillColor(15,34,64); doc.rect(M,y,W-M*2,9,"F");
-  doc.setTextColor(200,153,58); doc.setFont("helvetica","bold"); doc.setFontSize(7.5);
-  ["Casa de Oração","C48","C2","C4 Limpeza","C4 EBI"].forEach((h,i)=>{
-    doc.text(h,M+i*colW+2,y+6.5);
-  });
-  y+=9;
-
-  CHURCHES.forEach((ch,ci)=>{
-    // calcula altura necessária para a linha desta igreja
-    // cada célula pode ter 1 linha (ok/especial) ou múltiplas (avarias)
-    let maxLines = 1;
-    BOOKS.forEach(bk=>{
-      const r=state[stateKey(ch,bk.id)];
-      if(r && r.status==="avaria" && r.avarias.length>0){
-        // cada avaria em linha própria
-        const lines = r.avarias.filter(a=>!AVARIAS_ESPECIAIS.includes(a)).length
-                    + r.avarias.filter(a=>AVARIAS_ESPECIAIS.includes(a)).length;
-        if(lines>maxLines) maxLines=lines;
-      }
-    });
-    const rowH = Math.max(9, maxLines*6+3);
-
-    doc.setFillColor(ci%2===0?248:237,ci%2===0?244:230,ci%2===0?238:215);
-    doc.rect(M,y,W-M*2,rowH,"F");
-
-    // nome da igreja (centralizado verticalmente)
-    doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(15,34,64);
-    doc.text(ch,M+2,y+rowH/2+2.5);
-
-    BOOKS.forEach((bk,bi)=>{
-      const r=state[stateKey(ch,bk.id)];
-      const st=r?r.status:"pendente";
-      const cx=M+(bi+1)*colW+2;
-
-      if(st==="ok"){
-        doc.setFont("helvetica","bold"); doc.setFontSize(7); doc.setTextColor(26,122,74);
-        doc.text("✓ OK",cx,y+rowH/2+2.5);
-      } else if(st==="especial"){
-        // mostra o(s) motivo(s) especial(is) ex: "Não Veio", "Não Teve"
+    // monta as linhas de conteúdo de cada coluna (célula) desta igreja
+    const cellLines = BOOKS.map(bk => {
+      const r = state[stateKey(ch, bk.id)];
+      const st = r ? r.status : "pendente";
+      const lines = [];
+      if (st === "ok") {
+        lines.push({ t:"✓ OK", color:[26,122,74], bold:true });
+      } else if (st === "especial") {
         const especiais = r.avarias.filter(a=>AVARIAS_ESPECIAIS.includes(a));
-        doc.setFont("helvetica","italic"); doc.setFontSize(6.5); doc.setTextColor(180,130,0);
-        if(especiais.length===0){
-          doc.text("Especial",cx,y+rowH/2+2.5);
-        } else {
-          especiais.forEach((e,ei)=>{
-            doc.text(e,cx,y+5+ei*6);
-          });
-        }
-      } else if(st==="avaria"){
-        const avNormais  = r.avarias.filter(a=>!AVARIAS_ESPECIAIS.includes(a));
-        const avEspeciais= r.avarias.filter(a=>AVARIAS_ESPECIAIS.includes(a));
-        let lineY=y+5;
-        doc.setFont("helvetica","normal"); doc.setFontSize(6); doc.setTextColor(192,57,43);
-        avNormais.forEach(av=>{
-          // abreviações para caber na coluna (~36mm)
-          const label=av.length>18?av.slice(0,17)+"…":av;
-          doc.text("• "+label,cx,lineY); lineY+=6;
-        });
-        if(avEspeciais.length>0){
-          doc.setTextColor(180,130,0);
-          avEspeciais.forEach(av=>{
-            const label=av.length>18?av.slice(0,17)+"…":av;
-            doc.text("• "+label,cx,lineY); lineY+=6;
-          });
-        }
+        if (especiais.length===0) lines.push({ t:"Especial", color:[180,130,0] });
+        else especiais.forEach(e => lines.push({ t:e, color:[180,130,0] }));
+      } else if (st === "avaria") {
+        const avN = r.avarias.filter(a=>!AVARIAS_ESPECIAIS.includes(a));
+        const avE = r.avarias.filter(a=>AVARIAS_ESPECIAIS.includes(a));
+        avN.forEach(a => lines.push({ t:"• "+(a.length>22?a.slice(0,21)+"…":a), color:[192,57,43] }));
+        avE.forEach(a => lines.push({ t:"• "+(a.length>22?a.slice(0,21)+"…":a), color:[180,130,0] }));
       } else {
-        // pendente / não conferido — sem texto, só traço
-        doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(150,140,130);
-        doc.text("—",cx,y+rowH/2+2.5);
+        lines.push({ t:"—", color:[150,140,130] });
       }
+      if (r && r.conferidoPor) {
+        const primeiroNome = r.conferidoPor.split(" ")[0];
+        lines.push({ t:"por "+primeiroNome, color:[100,100,120], italic:true });
+      }
+      if (r && r.obs) {
+        const obsTxt = "Obs: "+(r.obs.length>26?r.obs.slice(0,25)+"…":r.obs);
+        lines.push({ t:obsTxt, color:[100,100,120], italic:true });
+      }
+      return lines;
     });
-    y+=rowH;
+
+    const maxLines = Math.max(1, ...cellLines.map(c=>c.length));
+    const rowH = Math.max(6.5, maxLines*lineH + 2.2);
+
+    if (y + rowH > pageBottom) { doc.addPage(); drawHeader(); }
+
+    doc.setFillColor(ci%2===0?248:237, ci%2===0?244:230, ci%2===0?238:215);
+    doc.rect(M, y, W-M*2, rowH, "F");
+
+    const isManual = churchesManual.includes(ch);
+    doc.setFont("helvetica","normal"); doc.setFontSize(6.2); doc.setTextColor(15,34,64);
+    doc.text(ch + (isManual?" ✦":""), M+2, y+4, { maxWidth: colWidths[0]-3 });
+
+    let cx = M+2+colWidths[0];
+    for (let bi=0; bi<BOOKS.length; bi++) {
+      let ly = y+3.6;
+      cellLines[bi].forEach(line => {
+        doc.setFont("helvetica", line.bold?"bold":(line.italic?"italic":"normal"));
+        doc.setFontSize(5.5);
+        doc.setTextColor(...line.color);
+        doc.text(line.t, cx, ly, { maxWidth: colWidths[bi+1]-3 });
+        ly += lineH;
+      });
+      cx += colWidths[bi+1];
+    }
+    y += rowH;
   });
 
-  y+=10;
-  doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(15,34,64);
+  if (churchesManual.length>0) {
+    if (y+6 > pageBottom) { doc.addPage(); drawHeader(); }
+    doc.setFont("helvetica","italic"); doc.setFontSize(6.3); doc.setTextColor(100,100,120);
+    doc.text("✦ Igreja visitante adicionada manualmente para esta conferência.", M, y+4.5);
+    y += 8;
+  }
+
+  if (y+22 > pageBottom) { doc.addPage(); drawHeader(); }
+  y += 5;
+  doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(15,34,64);
   doc.text("Índice de conformidade geral: "+pct+"%",M,y);
-  y+=7;
-  doc.setFillColor(210,200,185); doc.rect(M,y,W-M*2,7,"F");
-  const bc=pct>=80?[26,122,74]:pct>=50?[212,128,10]:[192,57,43];
-  doc.setFillColor(...bc); doc.rect(M,y,(W-M*2)*(pct/100),7,"F");
-  if(pct>8){doc.setTextColor(255,255,255);doc.setFontSize(7);doc.text(pct+"%",M+(W-M*2)*(pct/100)-10,y+5.5);}
-  y+=14;
-  doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(100,100,120);
+  y += 6;
+  doc.setFillColor(210,200,185); doc.rect(M,y,W-M*2,6,"F");
+  const bc = pct>=80?[26,122,74]:pct>=50?[212,128,10]:[192,57,43];
+  doc.setFillColor(...bc); doc.rect(M,y,(W-M*2)*(pct/100),6,"F");
+  if (pct>8) { doc.setTextColor(255,255,255); doc.setFontSize(6.3); doc.text(pct+"%",M+(W-M*2)*(pct/100)-9,y+4.2); }
+  y += 10;
+  doc.setFont("helvetica","normal"); doc.setFontSize(6.3); doc.setTextColor(100,100,120);
   doc.text("Gerado em "+new Date().toLocaleString("pt-BR")+" por "+resp,M,y);
-  doc.text("Congregação Cristã no Brasil — Região Costa Sul — São Sebastião / SP",M,y+5);
+  doc.text("Congregação Cristã no Brasil — Região Costa Sul — São Sebastião / SP",M,y+4);
 
   doc.save("CCB_Conferencia_"+(month||"relatorio")+".pdf");
   showToast("📄 PDF gerado com sucesso!", "green");
