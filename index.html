@@ -887,36 +887,46 @@ async function gerarPDF() {
 
   CHURCHES.forEach((ch,ci) => {
     // monta as linhas de conteúdo de cada coluna (célula) desta igreja
-    const cellLines = BOOKS.map(bk => {
+    const cellW = (bi) => colWidths[bi+1] - 3;
+    // quebra o texto em várias linhas conforme a largura da célula (sem cortar nada)
+    const wrap = (txt, w, style, size, extra) => {
+      doc.setFont("helvetica", style); doc.setFontSize(size);
+      return doc.splitTextToSize(String(txt), w).map((t,i) => Object.assign({ t:t, style:style, size:size }, extra, (i>0 && extra && extra.bullet) ? { t:"  "+t } : {}));
+    };
+    const cellLines = BOOKS.map((bk, bi) => {
       const r = state[stateKey(ch, bk.id)];
       const st = r ? r.status : "pendente";
-      const lines = [];
+      const w = cellW(bi);
+      let lines = [];
       if (st === "ok") {
-        lines.push({ t:"✓ OK", color:[26,122,74], bold:true });
+        lines = lines.concat(wrap("✓ OK", w, "bold", 5.5, { color:[26,122,74] }));
       } else if (st === "especial") {
         const especiais = r.avarias.filter(a=>AVARIAS_ESPECIAIS.includes(a));
-        if (especiais.length===0) lines.push({ t:"Especial", color:[180,130,0] });
-        else especiais.forEach(e => lines.push({ t:e, color:[180,130,0] }));
+        if (especiais.length===0) lines = lines.concat(wrap("Especial", w, "normal", 5.5, { color:[180,130,0] }));
+        else especiais.forEach(e => { lines = lines.concat(wrap(e, w, "normal", 5.5, { color:[180,130,0] })); });
       } else if (st === "avaria") {
         const avN = r.avarias.filter(a=>!AVARIAS_ESPECIAIS.includes(a));
         const avE = r.avarias.filter(a=>AVARIAS_ESPECIAIS.includes(a));
-        avN.forEach(a => lines.push({ t:"• "+(a.length>22?a.slice(0,21)+"…":a), color:[192,57,43] }));
-        avE.forEach(a => lines.push({ t:"• "+(a.length>22?a.slice(0,21)+"…":a), color:[180,130,0] }));
+        avN.forEach(a => { lines = lines.concat(wrap("• "+a, w, "normal", 5.5, { color:[192,57,43], bullet:true })); });
+        avE.forEach(a => { lines = lines.concat(wrap("• "+a, w, "normal", 5.5, { color:[180,130,0], bullet:true })); });
       } else {
-        lines.push({ t:"—", color:[150,140,130] });
+        lines = lines.concat(wrap("—", w, "normal", 5.5, { color:[150,140,130] }));
       }
       if (r && r.conferidoPor) {
-        const primeiroNome = r.conferidoPor.split(" ")[0];
-        lines.push({ t:"por "+primeiroNome, color:[100,100,120], italic:true });
+        lines = lines.concat(wrap("por "+r.conferidoPor, w, "italic", 5.5, { color:[100,100,120] }));
       }
       if (r && r.obs) {
-        const obsTxt = "Obs: "+(r.obs.length>26?r.obs.slice(0,25)+"…":r.obs);
-        lines.push({ t:obsTxt, color:[100,100,120], italic:true });
+        lines = lines.concat(wrap("Obs: "+r.obs, w, "italic", 5.5, { color:[100,100,120] }));
       }
       return lines;
     });
 
-    const maxLines = Math.max(1, ...cellLines.map(c=>c.length));
+    // nome da casa de oração também quebra em várias linhas, se necessário
+    const nameTxt = ch + (churchesManual.includes(ch) ? " ✦" : "");
+    doc.setFont("helvetica","normal"); doc.setFontSize(6.2);
+    const nameLines = doc.splitTextToSize(nameTxt, colWidths[0]-3);
+
+    const maxLines = Math.max(1, nameLines.length, ...cellLines.map(c=>c.length));
     const rowH = Math.max(6.5, maxLines*lineH + 2.2);
 
     if (y + rowH > pageBottom) { doc.addPage(); drawHeader(); }
@@ -926,16 +936,16 @@ async function gerarPDF() {
 
     const isManual = churchesManual.includes(ch);
     doc.setFont("helvetica","normal"); doc.setFontSize(6.2); doc.setTextColor(15,34,64);
-    doc.text(ch + (isManual?" ✦":""), M+2, y+4, { maxWidth: colWidths[0]-3 });
+    nameLines.forEach((nl, i) => doc.text(nl, M+2, y+4+i*lineH));
 
     let cx = M+2+colWidths[0];
     for (let bi=0; bi<BOOKS.length; bi++) {
       let ly = y+3.6;
       cellLines[bi].forEach(line => {
-        doc.setFont("helvetica", line.bold?"bold":(line.italic?"italic":"normal"));
-        doc.setFontSize(5.5);
+        doc.setFont("helvetica", line.style);
+        doc.setFontSize(line.size);
         doc.setTextColor(...line.color);
-        doc.text(line.t, cx, ly, { maxWidth: colWidths[bi+1]-3 });
+        doc.text(line.t, cx, ly);
         ly += lineH;
       });
       cx += colWidths[bi+1];
