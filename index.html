@@ -129,6 +129,9 @@
     display: flex; align-items: center; gap: 7px;
   }
   .btn-pdf:hover { background: var(--gold-light); transform: translateY(-1px); }
+  .pdf-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn-pdf-alt { background: transparent; color: var(--gold); border: 1.5px solid var(--gold); }
+  .btn-pdf-alt:hover { background: var(--gold); color: #0f2240; }
 
   .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
   .stat-card {
@@ -330,7 +333,10 @@
         <input type="date" id="meetDate" />
       </div>
     </div>
-    <button class="btn-pdf" onclick="gerarPDF()">📄 Gerar Relatório PDF</button>
+    <div class="pdf-actions">
+      <button class="btn-pdf" onclick="gerarPDF('completo')">📄 Relatório Completo</button>
+      <button class="btn-pdf btn-pdf-alt" onclick="gerarPDF('c2c48')">📄 Somente C2 e C48</button>
+    </div>
   </div>
 
   <div class="stats-row">
@@ -819,7 +825,11 @@ function showToast(msg, cls) {
 }
 
 // ====== PDF ======
-async function gerarPDF() {
+// modo: "completo" (todos os livros) ou "c2c48" (somente C48 e C2)
+async function gerarPDF(modo) {
+  const somenteC2C48 = (modo === "c2c48");
+  const livros = somenteC2C48 ? BOOKS.filter(b => b.id==="C48" || b.id==="C2") : BOOKS;
+  const tituloResumo = somenteC2C48 ? "Resumo — C48 e C2 — Todas as Casas de Oração" : "Resumo Geral — Todas as Casas de Oração";
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const resp  = document.getElementById("respName").value || "WESLEY CAPUCHO";
@@ -838,6 +848,11 @@ async function gerarPDF() {
   doc.setTextColor(255,255,255); doc.setFontSize(24);
   doc.text("Relatório de",W/2,80,{align:"center"});
   doc.text("Conferência de Livros",W/2,93,{align:"center"});
+  if (somenteC2C48) {
+    doc.setFontSize(12); doc.setTextColor(200,153,58);
+    doc.text("Livros C48 e C2",W/2,106,{align:"center"});
+    doc.setTextColor(255,255,255); doc.setFontSize(24);
+  }
   doc.setFontSize(10); doc.setTextColor(200,153,58);
   const monthStr = month ? new Date(month+"-02").toLocaleDateString("pt-BR",{month:"long",year:"numeric"}) : "—";
   doc.text("Mês de referência: "+monthStr,W/2,130,{align:"center"});
@@ -845,8 +860,11 @@ async function gerarPDF() {
   doc.text("Responsável: "+resp,W/2,146,{align:"center"});
 
   let totOk=0,totErr=0;
-  const allTotal = CHURCHES.length*BOOKS.length;
-  Object.values(state).forEach(r=>{ if(r.status==="ok")totOk++; else if(r.status==="avaria")totErr++; });
+  const allTotal = CHURCHES.length*livros.length;
+  CHURCHES.forEach(ch => livros.forEach(bk => {
+    const r = state[stateKey(ch, bk.id)];
+    if (r && r.status==="ok") totOk++; else if (r && r.status==="avaria") totErr++;
+  }));
   const totPend = allTotal-totOk-totErr;
   const pct = allTotal>0?Math.round((totOk/allTotal)*100):0;
 
@@ -871,13 +889,16 @@ async function gerarPDF() {
   function drawHeader() {
     doc.setFillColor(15,34,64); doc.rect(0,0,W,15,"F");
     doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(255,255,255);
-    doc.text("Resumo Geral — Todas as Casas de Oração",M,10);
+    doc.text(tituloResumo,M,10);
     y = 20;
     doc.setFillColor(15,34,64); doc.rect(M,y,W-M*2,6.5,"F");
     doc.setTextColor(200,153,58); doc.setFont("helvetica","bold"); doc.setFontSize(6.2);
-    const heads = ["Casa de Oração","C48","C2","C4 Limpeza","C4 EBI"];
+    const nomesCurtos = { C48:"C48", C2:"C2", C4L:"C4 Limpeza", C4EBI:"C4 EBI" };
+    const heads = ["Casa de Oração", ...livros.map(b => nomesCurtos[b.id] || b.label)];
     const totalW = W - M*2;
-    colWidths = [totalW*0.24, totalW*0.19, totalW*0.19, totalW*0.19, totalW*0.19];
+    colWidths = somenteC2C48
+      ? [totalW*0.30, totalW*0.35, totalW*0.35]
+      : [totalW*0.24, totalW*0.19, totalW*0.19, totalW*0.19, totalW*0.19];
     let cx = M+2;
     heads.forEach((h,i)=>{ doc.text(h,cx,y+4.5); cx += colWidths[i]; });
     y += 6.5;
@@ -893,7 +914,7 @@ async function gerarPDF() {
       doc.setFont("helvetica", style); doc.setFontSize(size);
       return doc.splitTextToSize(String(txt), w).map((t,i) => Object.assign({ t:t, style:style, size:size }, extra, (i>0 && extra && extra.bullet) ? { t:"  "+t } : {}));
     };
-    const cellLines = BOOKS.map((bk, bi) => {
+    const cellLines = livros.map((bk, bi) => {
       const r = state[stateKey(ch, bk.id)];
       const st = r ? r.status : "pendente";
       const w = cellW(bi);
@@ -939,7 +960,7 @@ async function gerarPDF() {
     nameLines.forEach((nl, i) => doc.text(nl, M+2, y+4+i*lineH));
 
     let cx = M+2+colWidths[0];
-    for (let bi=0; bi<BOOKS.length; bi++) {
+    for (let bi=0; bi<livros.length; bi++) {
       let ly = y+3.6;
       cellLines[bi].forEach(line => {
         doc.setFont("helvetica", line.style);
@@ -974,7 +995,7 @@ async function gerarPDF() {
   doc.text("Gerado em "+new Date().toLocaleString("pt-BR")+" por "+resp,M,y);
   doc.text("Congregação Cristã no Brasil — Região Costa Sul — São Sebastião / SP",M,y+4);
 
-  doc.save("CCB_Conferencia_"+(month||"relatorio")+".pdf");
+  doc.save("CCB_Conferencia_"+(somenteC2C48?"C48_C2_":"")+(month||"relatorio")+".pdf");
   showToast("📄 PDF gerado com sucesso!", "green");
 }
 </script>
